@@ -1,0 +1,55 @@
+# Local testing on Linux Mint (or any normal desktop Linux).
+#
+#   cd orbit
+#   mkdir -p data
+#   docker compose -f docker-compose.local.yaml up --build
+#   xdg-open http://localhost:8899
+#
+# Differences from the TrueNAS file:
+#   * builds from ./ instead of an absolute pool path
+#   * runs as YOUR uid/gid, not TrueNAS's 568:568, so the bind mount stays writable
+#   * data lives in ./data next to the source
+#   * no GPU devices, no restart policy
+#
+# If your account isn't 1000:1000, run `id -u` / `id -g` and set them below,
+# or launch with:  UID_GID="$(id -u):$(id -g)" docker compose -f docker-compose.local.yaml up
+
+name: orbit-local
+
+services:
+  orbit:
+    build:
+      context: .
+    image: orbit:local
+    container_name: orbit-local
+    user: "${UID_GID:-1000:1000}"
+    environment:
+      ORBIT_DATA: /data
+      ORBIT_ADMIN_USER: admin
+      ORBIT_ADMIN_PASSWORD: localtest
+      # must match the address you actually open, or copied share links 404
+      ORBIT_PUBLIC_URL: http://localhost:8899
+      ORBIT_MAX360_STABILISE: horizon
+      ORBIT_AUTO_SOLVE: "1"
+      TZ: America/Los_Angeles
+    ports:
+      - "8899:8080"
+    volumes:
+      - ./data:/data
+
+  orbit-worker:
+    build:
+      context: .
+    image: orbit:local
+    container_name: orbit-worker-local
+    user: "${UID_GID:-1000:1000}"
+    command: ["python", "-m", "app.worker"]
+    environment:
+      ORBIT_DATA: /data
+      ORBIT_MAX360_STABILISE: horizon
+      ORBIT_AUTO_SOLVE: "1"
+      TZ: America/Los_Angeles
+    volumes:
+      - ./data:/data
+    depends_on:
+      - orbit

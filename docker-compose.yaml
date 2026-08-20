@@ -1,0 +1,70 @@
+# Orbit on TrueNAS SCALE 25.10 (Goldeye)
+#
+# Apps > Discover > (kebab menu) > Install via YAML, then paste this in.
+#
+# This pulls a prebuilt image from GHCR, so there is no source checkout and no
+# building on the NAS. Updating is: bump the tag (or re-pull :latest) and
+# redeploy. See README section 8.
+#
+# Before pasting, replace:
+#   YOURUSER   your GitHub username, lowercase
+#   POOL       your pool name
+#   CHANGE_ME  a real password
+#
+# Pin a version tag instead of :latest if you would rather update deliberately.
+
+name: orbit
+
+services:
+  orbit:
+    image: ghcr.io/YOURUSER/orbit:latest
+    container_name: orbit
+    restart: unless-stopped
+    user: "568:568"                     # TrueNAS `apps` user
+    environment:
+      ORBIT_DATA: /data
+      ORBIT_ADMIN_USER: admin
+      ORBIT_ADMIN_PASSWORD: CHANGE_ME   # only seeds the first account
+      ORBIT_PUBLIC_URL: https://orbit.agrabah.app
+      ORBIT_MAX360_STABILISE: horizon   # horizon | full | none
+      ORBIT_AUTO_SOLVE: "1"
+      TZ: America/Los_Angeles
+    ports:
+      - "8899:8080"                     # LAN access + Cloudflare Tunnel origin
+    volumes:
+      - /mnt/POOL/apps/orbit/data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "6.0"
+          memory: 8G
+
+  orbit-worker:
+    image: ghcr.io/YOURUSER/orbit:latest
+    container_name: orbit-worker
+    restart: unless-stopped
+    user: "568:568"
+    command: ["python", "-m", "app.worker"]
+    environment:
+      ORBIT_DATA: /data
+      ORBIT_MAX360_STABILISE: horizon
+      ORBIT_AUTO_SOLVE: "1"
+      TZ: America/Los_Angeles
+    volumes:
+      - /mnt/POOL/apps/orbit/data:/data
+    depends_on:
+      - orbit
+    deploy:
+      resources:
+        limits:
+          cpus: "6.0"                   # projection and encoding are the whole job
+          memory: 8G
+
+# Cloudflare: you already run a tunnel, so add a hostname to it rather than
+# starting a second cloudflared.
+#
+#   Hostname : orbit.agrabah.app
+#   Service  : http://<truenas-lan-ip>:8899
+#
+# Then add a cache rule for orbit.agrabah.app/api/items/*/media/* and
+# /api/s/*/items/*/media/* set to Bypass cache. README section 5 explains why.

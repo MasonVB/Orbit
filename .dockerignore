@@ -1,0 +1,12 @@
+data/
+.env
+.git/
+.github/
+.venv/
+__pycache__/
+*.py[cod]
+docker-compose*.yaml
+smoke_test.py
+scripts/
+README.md
+.gitignore

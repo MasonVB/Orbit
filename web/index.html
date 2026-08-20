@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Orbit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.7.3/index.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/video-plugin@5.7.3/index.min.css">
+<style>
+:root{
+  --ink:#0D1014; --panel:#151A21; --raise:#1D242D; --line:#2A333F;
+  --text:#DDE4EC; --muted:#7C8A9B; --signal:#F0A93B; --good:#4FB286; --bad:#E2685F;
+  --r:3px;
+  --display:"IBM Plex Sans Condensed",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ink);color:var(--text);font-family:var(--body);font-size:14px;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--signal)}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---- chrome ---- */
+.app{display:grid;grid-template-columns:248px 1fr;height:100%}
+.rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.brand{padding:18px 18px 14px;border-bottom:1px solid var(--line)}
+.brand h1{font-family:var(--display);font-size:19px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin:0}
+.brand p{margin:3px 0 0;font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.04em}
+.tree{flex:1;overflow:auto;padding:10px 8px}
+.tree-row{display:flex;align-items:center;gap:8px;width:100%;padding:6px 10px;border:0;background:none;border-radius:var(--r);cursor:pointer;text-align:left;color:var(--muted)}
+.tree-row:hover{background:var(--raise);color:var(--text)}
+.tree-row[aria-current="true"]{background:var(--raise);color:var(--text);box-shadow:inset 2px 0 0 var(--signal)}
+.tree-row .tw{width:12px;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.rail-foot{border-top:1px solid var(--line);padding:10px}
+.qbar{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;padding:4px 6px 10px}
+
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.top{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.crumb{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:.01em;display:flex;gap:7px;align-items:baseline;flex-wrap:wrap}
+.crumb button{background:none;border:0;padding:0;cursor:pointer;color:var(--muted);font:inherit}
+.crumb button:last-child{color:var(--text)}
+.crumb .sep{color:var(--line)}
+.spacer{flex:1}
+.btn{background:var(--raise);border:1px solid var(--line);border-radius:var(--r);padding:7px 13px;cursor:pointer;font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.03em}
+.btn:hover{border-color:var(--muted)}
+.btn.key{background:var(--signal);border-color:var(--signal);color:#1A1206}
+.btn.ghost{background:none}
+.btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+
+/* ---- grid: the signature. Cards are 2:1 because that IS the file shape. ---- */
+.sheet{flex:1;overflow:auto;padding:22px}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+.eyebrow+.eyebrow{margin-top:28px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+.folder-grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+
+.card{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden;cursor:pointer;text-align:left;padding:0;color:inherit;font:inherit;display:block;transition:border-color .15s}
+.card:hover{border-color:var(--muted)}
+.strip{position:relative;aspect-ratio:2/1;background:#0A0D11;overflow:hidden}
+.strip img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .9s cubic-bezier(.2,.7,.3,1)}
+.card:hover .strip img{transform:scale(1.06)}
+/* horizon hairline - marks the equator of the unwrapped sphere */
+.strip::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(240,169,59,.28);pointer-events:none}
+.badge{position:absolute;left:8px;top:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;background:rgba(10,13,17,.82);border:1px solid var(--line);padding:2px 6px;border-radius:2px;color:var(--muted)}
+.badge.warn{color:var(--signal);border-color:rgba(240,169,59,.4)}
+.badge.bad{color:var(--bad);border-color:rgba(226,104,95,.4)}
+.dur{position:absolute;right:8px;bottom:8px;font-family:var(--mono);font-size:10.5px;background:rgba(10,13,17,.82);padding:2px 6px;border-radius:2px}
+.meta{padding:9px 11px 11px}
+.meta .n{font-family:var(--display);font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta .s{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.folder-card{display:flex;align-items:center;gap:11px;padding:15px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);cursor:pointer;color:inherit;font:inherit;width:100%;text-align:left}
+.folder-card:hover{border-color:var(--muted)}
+.folder-card .g{font-family:var(--mono);color:var(--signal);font-size:14px}
+.folder-card .n{font-family:var(--display);font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.empty{border:1px dashed var(--line);border-radius:var(--r);padding:44px 26px;text-align:center;color:var(--muted)}
+.empty h3{font-family:var(--display);color:var(--text);font-size:16px;margin:0 0 6px;letter-spacing:.02em}
+.empty p{margin:0 0 16px;max-width:44ch;margin-inline:auto}
+
+/* ---- viewer ---- */
+.viewer{position:fixed;inset:0;background:#07090C;display:none;flex-direction:column;z-index:60}
+.viewer.on{display:flex}
+.vtop{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.vtop .t{font-family:var(--display);font-weight:600;font-size:15px}
+.vtop .m{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+#stage{flex:1;min-height:0}
+
+/* ---- dialogs ---- */
+.scrim{position:fixed;inset:0;background:rgba(5,7,10,.72);display:none;align-items:center;justify-content:center;z-index:80;padding:20px}
+.scrim.on{display:flex}
+.dlg{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);width:min(480px,100%);padding:22px;max-height:86vh;overflow:auto}
+.dlg h2{font-family:var(--display);font-size:17px;letter-spacing:.03em;margin:0 0 4px}
+.dlg .sub{color:var(--muted);margin:0 0 18px;font-size:13px}
+.field{margin-bottom:13px}
+.field label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.field input,.field select{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:var(--r);padding:9px 11px}
+.field input:focus,.field select:focus{border-color:var(--signal);outline:none}
+.row{display:flex;gap:9px;justify-content:flex-end;margin-top:18px}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.check input{width:auto}
+.linkout{display:flex;gap:8px;margin-top:8px}
+.linkout input{font-family:var(--mono);font-size:12px}
+.note{font-size:12.5px;color:var(--muted);border-left:2px solid var(--line);padding-left:11px;margin-top:14px}
+.err{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--raise);border:1px solid var(--line);border-radius:var(--r);padding:10px 16px;font-family:var(--mono);font-size:12px;z-index:90;display:none}
+.toast.on{display:block}
+
+/* ---- login ---- */
+.gate{height:100%;display:flex;align-items:center;justify-content:center;padding:20px}
+.gate .dlg{width:min(360px,100%)}
+
+@media (max-width:860px){
+  .app{grid-template-columns:1fr}
+  .rail{display:none}
+  .sheet{padding:16px}
+}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate hidden">
+  <div class="dlg">
+    <h2>Orbit</h2>
+    <p class="sub">Sign in to open your library.</p>
+    <div class="field"><label for="u">Username</label><input id="u" autocomplete="username"></div>
+    <div class="field"><label for="p">Password</label><input id="p" type="password" autocomplete="current-password"></div>
+    <div class="err" id="gate-err"></div>
+    <div class="row"><button class="btn key" id="signin">Sign in</button></div>
+  </div>
+</div>
+
+<div id="app" class="app hidden">
+  <aside class="rail">
+    <div class="brand">
+      <h1>Orbit</h1>
+      <p id="brand-sub">360 library</p>
+    </div>
+    <nav class="tree" id="tree"></nav>
+    <div class="rail-foot">
+      <div class="qbar"><span id="queue">queue idle</span><span id="who"></span></div>
+      <button class="btn ghost" id="signout" style="width:100%">Sign out</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <div class="crumb" id="crumb"></div>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="new-folder">New folder</button>
+      <button class="btn ghost" id="share-folder">Share folder</button>
+      <button class="btn key" id="add">Add media</button>
+      <input type="file" id="picker" multiple accept=".insp,.insv,.360,.jpg,.jpeg,.png,.mp4,.mov,.heic,.dng" hidden>
+    </header>
+    <section class="sheet" id="sheet"></section>
+  </main>
+</div>
+
+<div class="viewer" id="viewer">
+  <div class="vtop">
+    <button class="btn ghost" id="vclose">Back</button>
+    <div><div class="t" id="vtitle"></div><div class="m" id="vmeta"></div></div>
+    <span class="spacer"></span>
+    <select id="vquality" class="btn ghost hidden" style="padding:6px 10px"></select>
+    <button class="btn ghost" id="vshare">Share</button>
+    <button class="btn ghost" id="vdownload">Download original</button>
+  </div>
+  <div id="stage"></div>
+</div>
+
+<div class="scrim" id="scrim"><div class="dlg" id="dlg"></div></div>
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "@photo-sphere-viewer/core":"https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5.7.3/index.module.js",
+  "@photo-sphere-viewer/equirectangular-video-adapter":"https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/equirectangular-video-adapter@5.7.3/index.module.js",
+  "@photo-sphere-viewer/video-plugin":"https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/video-plugin@5.7.3/index.module.js",
+  "@photo-sphere-viewer/gyroscope-plugin":"https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/gyroscope-plugin@5.7.3/index.module.js"
+}}
+</script>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

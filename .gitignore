@@ -1,0 +1,23 @@
+# runtime data - never commit media, the database, or solved calibrations
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# secrets
+.env
+
+# python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# editors / os
+.idea/
+.vscode/
+.DS_Store
+
+# scratch
+/tmp/
+*.log
