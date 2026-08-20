@@ -1,12 +1,53 @@
-import { Viewer } from '@photo-sphere-viewer/core';
-import { EquirectangularVideoAdapter } from '@photo-sphere-viewer/equirectangular-video-adapter';
-import { VideoPlugin } from '@photo-sphere-viewer/video-plugin';
-import { GyroscopePlugin } from '@photo-sphere-viewer/gyroscope-plugin';
+// Photo Sphere Viewer is loaded on demand, not at module scope. Imported at the
+// top it would be a hard dependency of the whole page: if the CDN is blocked or
+// offline the module never evaluates and the entire interface goes blank -
+// no login, no browsing. Loaded lazily, only the sphere viewer needs it.
+let LIBS = null;
+async function viewerLibs() {
+  if (LIBS) return LIBS;
+  const [core, videoAdapter, videoPlugin, gyro] = await Promise.all([
+    import('@photo-sphere-viewer/core'),
+    import('@photo-sphere-viewer/equirectangular-video-adapter'),
+    import('@photo-sphere-viewer/video-plugin'),
+    import('@photo-sphere-viewer/gyroscope-plugin'),
+  ]);
+  LIBS = {
+    Viewer: core.Viewer,
+    EquirectangularVideoAdapter: videoAdapter.EquirectangularVideoAdapter,
+    VideoPlugin: videoPlugin.VideoPlugin,
+    GyroscopePlugin: gyro.GyroscopePlugin,
+  };
+  return LIBS;
+}
 
 const $ = (id) => document.getElementById(id);
 const shareToken = location.pathname.startsWith('/s/') ? location.pathname.slice(3) : null;
 
 const state = { folder: null, items: [], sharePw: '', allowDownload: true, viewer: null, poll: null };
+
+// --------------------------------------------------------------------------
+// theme
+//
+// The stored value is the *preference* (system/dark/light); what gets written
+// to the document is the resolved theme, so CSS only ever sees dark or light.
+// A matching inline script in index.html runs this before first paint.
+// --------------------------------------------------------------------------
+const THEME_KEY = 'orbit.theme';
+const lightMQ = window.matchMedia('(prefers-color-scheme: light)');
+
+function themePref() {
+  try { return localStorage.getItem(THEME_KEY) || 'system'; } catch { return 'system'; }
+}
+function resolveTheme(pref) {
+  return pref === 'system' ? (lightMQ.matches ? 'light' : 'dark') : pref;
+}
+function applyTheme(pref) {
+  try { localStorage.setItem(THEME_KEY, pref); } catch {}
+  document.documentElement.setAttribute('data-theme', resolveTheme(pref));
+}
+lightMQ.addEventListener('change', () => {
+  if (themePref() === 'system') applyTheme('system');
+});
 
 // --------------------------------------------------------------------------
 // transport
@@ -145,6 +186,14 @@ function destroyViewer() {
 }
 
 async function openViewer(it) {
+  let libs;
+  try {
+    libs = await viewerLibs();
+  } catch (e) {
+    toast('The 360 viewer library could not be loaded. Check your connection.', 6000);
+    return;
+  }
+  const { Viewer, EquirectangularVideoAdapter, VideoPlugin, GyroscopePlugin } = libs;
   const full = shareToken ? it : await api(`/api/items/${it.id}`).catch(() => it);
   const derivs = (full.derivatives || []).map((d) => d.kind);
 
@@ -254,6 +303,49 @@ function shareDialog(type, id, name) {
     } catch (e) { $('se').textContent = e.message; }
   };
 }
+
+function settingsDialog() {
+  const pref = themePref();
+  const opts = [['system', 'System'], ['dark', 'Dark'], ['light', 'Light']];
+  dialog(`<h2>Settings</h2><p class="sub">Stored in this browser only.</p>
+    <div class="field"><label>Appearance</label>
+      <div class="seg" id="seg-theme">
+        ${opts.map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === pref}">${l}</button>`).join('')}
+      </div>
+    </div>
+    <div class="field"><label>Library</label>
+      <div id="settings-info"></div>
+    </div>
+    <p class="note">Appearance follows your operating system unless you pick
+      Dark or Light. The sphere viewer always sits on black, whichever you choose.</p>
+    <div class="row"><button class="btn key" id="set-done">Done</button></div>`);
+
+  $('seg-theme').onclick = (e) => {
+    const b = e.target.closest('button[data-v]');
+    if (!b) return;
+    applyTheme(b.dataset.v);
+    [...$('seg-theme').children].forEach((c) =>
+      c.setAttribute('aria-pressed', String(c === b)));
+  };
+  $('set-done').onclick = closeDialog;
+
+  const info = $('settings-info');
+  const row = (k, v) => `<div class="kv"><span>${k}</span><span>${v}</span></div>`;
+  if (shareToken) {
+    info.innerHTML = row('mode', 'shared link') +
+      row('downloads', state.allowDownload ? 'allowed' : 'off');
+  } else {
+    info.innerHTML = row('signed in', $('who').textContent || '-') + row('queue', 'checking…');
+    api('/healthz').then((h) => {
+      info.innerHTML = row('signed in', $('who').textContent || '-') +
+        row('queue', h.queue ? `${h.queue} waiting` : 'idle');
+    }).catch(() => {});
+  }
+}
+
+$('settings').onclick = settingsDialog;
+const railSettings = $('settings-rail');
+if (railSettings) railSettings.onclick = settingsDialog;
 
 // --------------------------------------------------------------------------
 // upload
@@ -369,6 +461,7 @@ async function boot() {
     $('app').classList.remove('hidden');
     document.querySelector('.rail-foot').classList.add('hidden');
     ['new-folder', 'share-folder', 'add'].forEach((id) => $(id).classList.add('hidden'));
+    // the gear stays: guests get to pick a theme too
     return loadShare();
   }
   try {

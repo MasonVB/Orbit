@@ -4,6 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Orbit</title>
+<script>
+(function(){
+  try{
+    var pref = localStorage.getItem('orbit.theme') || 'system';
+    var t = pref === 'system'
+      ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+      : pref;
+    document.documentElement.setAttribute('data-theme', t);
+  }catch(e){ document.documentElement.setAttribute('data-theme','dark'); }
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
@@ -11,12 +22,40 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/video-plugin@5.7.3/index.min.css">
 <style>
 :root{
+  /* dark is the default: the media is the colour, the interface recedes */
   --ink:#0D1014; --panel:#151A21; --raise:#1D242D; --line:#2A333F;
   --text:#DDE4EC; --muted:#7C8A9B; --signal:#F0A93B; --good:#4FB286; --bad:#E2685F;
+  --field:#0D1014;                      /* inputs */
+  --strip:#0A0D11;                      /* thumbnail backdrop */
+  --chip:rgba(10,13,17,.82);            /* badges over media */
+  --horizon:rgba(240,169,59,.28);       /* equator hairline */
+  --signal-dim:rgba(240,169,59,.4);
+  --scrim:rgba(5,7,10,.72);
+  --onsignal:#1A1206;                   /* text on an amber button */
+  --stage:#07090C;                      /* behind the sphere: always black */
+  --shadow:none;
+  color-scheme:dark;
   --r:3px;
   --display:"IBM Plex Sans Condensed",system-ui,sans-serif;
   --body:"IBM Plex Sans",system-ui,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+
+/* Light is warm paper rather than inverted dark - a contact sheet, not a
+   lightbulb. The amber signal darkens so it still carries on a pale field. */
+:root[data-theme="light"]{
+  --ink:#F2EFE9; --panel:#FBFAF7; --raise:#E9E4DB; --line:#D6CFC3;
+  --text:#1A1D21; --muted:#6D6960; --signal:#A66200; --good:#2F7D5B; --bad:#B23A31;
+  --field:#FFFFFF;
+  --strip:#DED8CE;
+  --chip:rgba(251,250,247,.88);
+  --horizon:rgba(166,98,0,.30);
+  --signal-dim:rgba(166,98,0,.45);
+  --scrim:rgba(40,36,30,.45);
+  --onsignal:#FFFFFF;
+  --stage:#07090C;
+  --shadow:0 1px 2px rgba(26,29,33,.06);
+  color-scheme:light;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -49,7 +88,7 @@ a{color:var(--signal)}
 .spacer{flex:1}
 .btn{background:var(--raise);border:1px solid var(--line);border-radius:var(--r);padding:7px 13px;cursor:pointer;font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.03em}
 .btn:hover{border-color:var(--muted)}
-.btn.key{background:var(--signal);border-color:var(--signal);color:#1A1206}
+.btn.key{background:var(--signal);border-color:var(--signal);color:var(--onsignal)}
 .btn.ghost{background:none}
 .btn.danger:hover{border-color:var(--bad);color:var(--bad)}
 
@@ -60,17 +99,17 @@ a{color:var(--signal)}
 .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
 .folder-grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
 
-.card{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden;cursor:pointer;text-align:left;padding:0;color:inherit;font:inherit;display:block;transition:border-color .15s}
+.card{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);box-shadow:var(--shadow);overflow:hidden;cursor:pointer;text-align:left;padding:0;color:inherit;font:inherit;display:block;transition:border-color .15s}
 .card:hover{border-color:var(--muted)}
-.strip{position:relative;aspect-ratio:2/1;background:#0A0D11;overflow:hidden}
+.strip{position:relative;aspect-ratio:2/1;background:var(--strip);overflow:hidden}
 .strip img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .9s cubic-bezier(.2,.7,.3,1)}
 .card:hover .strip img{transform:scale(1.06)}
 /* horizon hairline - marks the equator of the unwrapped sphere */
-.strip::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(240,169,59,.28);pointer-events:none}
-.badge{position:absolute;left:8px;top:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;background:rgba(10,13,17,.82);border:1px solid var(--line);padding:2px 6px;border-radius:2px;color:var(--muted)}
-.badge.warn{color:var(--signal);border-color:rgba(240,169,59,.4)}
+.strip::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--horizon);pointer-events:none}
+.badge{position:absolute;left:8px;top:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;background:var(--chip);border:1px solid var(--line);padding:2px 6px;border-radius:2px;color:var(--muted)}
+.badge.warn{color:var(--signal);border-color:var(--signal-dim)}
 .badge.bad{color:var(--bad);border-color:rgba(226,104,95,.4)}
-.dur{position:absolute;right:8px;bottom:8px;font-family:var(--mono);font-size:10.5px;background:rgba(10,13,17,.82);padding:2px 6px;border-radius:2px}
+.dur{position:absolute;right:8px;bottom:8px;font-family:var(--mono);font-size:10.5px;background:var(--chip);padding:2px 6px;border-radius:2px}
 .meta{padding:9px 11px 11px}
 .meta .n{font-family:var(--display);font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .meta .s{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -85,31 +124,42 @@ a{color:var(--signal)}
 .empty p{margin:0 0 16px;max-width:44ch;margin-inline:auto}
 
 /* ---- viewer ---- */
-.viewer{position:fixed;inset:0;background:#07090C;display:none;flex-direction:column;z-index:60}
+.viewer{position:fixed;inset:0;background:var(--ink);display:none;flex-direction:column;z-index:60}
 .viewer.on{display:flex}
 .vtop{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .vtop .t{font-family:var(--display);font-weight:600;font-size:15px}
 .vtop .m{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
-#stage{flex:1;min-height:0}
+#stage{flex:1;min-height:0;background:var(--stage)}
 
 /* ---- dialogs ---- */
-.scrim{position:fixed;inset:0;background:rgba(5,7,10,.72);display:none;align-items:center;justify-content:center;z-index:80;padding:20px}
+.scrim{position:fixed;inset:0;background:var(--scrim);display:none;align-items:center;justify-content:center;z-index:80;padding:20px}
 .scrim.on{display:flex}
 .dlg{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);width:min(480px,100%);padding:22px;max-height:86vh;overflow:auto}
 .dlg h2{font-family:var(--display);font-size:17px;letter-spacing:.03em;margin:0 0 4px}
 .dlg .sub{color:var(--muted);margin:0 0 18px;font-size:13px}
 .field{margin-bottom:13px}
 .field label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
-.field input,.field select{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:var(--r);padding:9px 11px}
+input,select,textarea{background:var(--field);color:var(--text);border:1px solid var(--line);border-radius:var(--r)}
+.field input,.field select{width:100%;background:var(--field);border:1px solid var(--line);border-radius:var(--r);padding:9px 11px}
 .field input:focus,.field select:focus{border-color:var(--signal);outline:none}
 .row{display:flex;gap:9px;justify-content:flex-end;margin-top:18px}
 .check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
 .check input{width:auto}
 .linkout{display:flex;gap:8px;margin-top:8px}
-.linkout input{font-family:var(--mono);font-size:12px}
+.linkout input{flex:1;min-width:0;font-family:var(--mono);font-size:12px;background:var(--field);color:var(--text);padding:9px 11px}
 .note{font-size:12.5px;color:var(--muted);border-left:2px solid var(--line);padding-left:11px;margin-top:14px}
 .err{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
 
+.seg{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.seg button{flex:1;background:var(--field);border:0;border-right:1px solid var(--line);padding:9px 8px;cursor:pointer;font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.03em;color:var(--muted)}
+.seg button:last-child{border-right:0}
+.seg button:hover{color:var(--text)}
+.seg button[aria-pressed="true"]{background:var(--signal);color:var(--onsignal)}
+.kv{display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:11.5px;color:var(--muted);padding:5px 0;border-bottom:1px solid var(--line)}
+.kv:last-child{border-bottom:0}
+.kv span:last-child{color:var(--text);text-align:right;overflow:hidden;text-overflow:ellipsis}
+.icon{background:none;border:1px solid transparent;border-radius:var(--r);padding:5px 8px;cursor:pointer;color:var(--muted);font-size:15px;line-height:1}
+.icon:hover{color:var(--text);border-color:var(--line)}
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--raise);border:1px solid var(--line);border-radius:var(--r);padding:10px 16px;font-family:var(--mono);font-size:12px;z-index:90;display:none}
 .toast.on{display:block}
 
@@ -147,7 +197,10 @@ a{color:var(--signal)}
     <nav class="tree" id="tree"></nav>
     <div class="rail-foot">
       <div class="qbar"><span id="queue">queue idle</span><span id="who"></span></div>
-      <button class="btn ghost" id="signout" style="width:100%">Sign out</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn ghost" id="signout" style="flex:1">Sign out</button>
+        <button class="btn ghost" id="settings-rail" title="Settings" aria-label="Settings">&#9881;</button>
+      </div>
     </div>
   </aside>
 
@@ -158,6 +211,7 @@ a{color:var(--signal)}
       <button class="btn ghost" id="new-folder">New folder</button>
       <button class="btn ghost" id="share-folder">Share folder</button>
       <button class="btn key" id="add">Add media</button>
+      <button class="icon" id="settings" title="Settings" aria-label="Settings">&#9881;</button>
       <input type="file" id="picker" multiple accept=".insp,.insv,.360,.jpg,.jpeg,.png,.mp4,.mov,.heic,.dng" hidden>
     </header>
     <section class="sheet" id="sheet"></section>
